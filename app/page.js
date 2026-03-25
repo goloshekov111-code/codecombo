@@ -21,40 +21,7 @@ export default function Home() {
   const inputRef = useRef(null);
   const suggestionsRef = useRef(null);
 
-  useEffect(() => {
-    const saved = localStorage.getItem('codecombo_history');
-    if (saved) setHistory(JSON.parse(saved));
-  }, []);
-
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (suggestionsRef.current && !suggestionsRef.current.contains(e.target) && inputRef.current !== e.target) {
-        setSuggestions([]);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const saveToHistory = (q) => {
-    const newHistory = [q, ...history.filter(h => h !== q)].slice(0, 5);
-    setHistory(newHistory);
-    localStorage.setItem('codecombo_history', JSON.stringify(newHistory));
-  };
-
-  const fetchSuggestions = async (value) => {
-    if (value.length < 2) {
-      setSuggestions([]);
-      return;
-    }
-    const { data } = await supabase
-      .from('repositories')
-      .select('name')
-      .ilike('name', `${value}%`)
-      .limit(5);
-    setSuggestions(data?.map(r => r.name) || []);
-  };
-
+  // Функция поиска
   const search = async (searchQuery = query) => {
     if (!searchQuery.trim()) return;
     setLoading(true);
@@ -90,6 +57,27 @@ export default function Home() {
     }
   };
 
+  // Сохранение истории
+  const saveToHistory = (q) => {
+    const newHistory = [q, ...history.filter(h => h !== q)].slice(0, 5);
+    setHistory(newHistory);
+    localStorage.setItem('codecombo_history', JSON.stringify(newHistory));
+  };
+
+  // Автодополнение
+  const fetchSuggestions = async (value) => {
+    if (value.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    const { data } = await supabase
+      .from('repositories')
+      .select('name')
+      .ilike('name', `${value}%`)
+      .limit(5);
+    setSuggestions(data?.map(r => r.name) || []);
+  };
+
   const copyInstallCommand = () => {
     if (complementary.length === 0) return;
     const packages = complementary.map(p => p.package_b).join(' ');
@@ -102,6 +90,33 @@ export default function Home() {
     navigator.clipboard.writeText(url);
     alert(lang === 'en' ? 'Link copied!' : 'Ссылка скопирована!');
   };
+
+  // Загрузка истории
+  useEffect(() => {
+    const saved = localStorage.getItem('codecombo_history');
+    if (saved) setHistory(JSON.parse(saved));
+  }, []);
+
+  // Авто-поиск из параметра q
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get('q');
+    if (q) {
+      setQuery(q);
+      search(q);
+    }
+  }, []);
+
+  // Закрытие подсказок при клике вне
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(e.target) && inputRef.current !== e.target) {
+        setSuggestions([]);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const t = {
     en: {
