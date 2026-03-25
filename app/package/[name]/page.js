@@ -20,14 +20,25 @@ export default function PackagePage() {
     const fetchData = async () => {
       setLoading(true);
       
-      const { data: compData } = await supabase
+      // Ищем связи в обе стороны
+      const { data: compData, error: compErr } = await supabase
         .from('co_occurrence')
-        .select('package_b, count')
-        .eq('package_a', name)
+        .select('package_a, package_b, count')
+        .or(`package_a.eq.${name},package_b.eq.${name}`)
         .order('count', { ascending: false })
-        .limit(10);
+        .limit(20);
 
-      setComplementary(compData || []);
+      if (compErr) {
+        console.error(compErr);
+        setComplementary([]);
+      } else {
+        // Форматируем: показываем ту библиотеку, которая не равна name
+        const formatted = compData.map(item => ({
+          name: item.package_a === name ? item.package_b : item.package_a,
+          count: item.count
+        }));
+        setComplementary(formatted);
+      }
       setLoading(false);
     };
 
@@ -39,7 +50,6 @@ export default function PackagePage() {
   return (
     <main className="min-h-screen p-8 bg-gray-50">
       <div className="max-w-3xl mx-auto">
-        {/* Исправленная ссылка назад с параметром q */}
         <a href={`/?q=${name}`} className="text-blue-600 hover:underline mb-4 inline-block">
           ← Back to search
         </a>
@@ -52,8 +62,8 @@ export default function PackagePage() {
           <ul className="space-y-2">
             {complementary.map((item, idx) => (
               <li key={idx} className="border-b pb-2 flex justify-between">
-                <a href={`/package/${item.package_b}`} className="font-mono text-green-600 hover:underline">
-                  {item.package_b}
+                <a href={`/package/${item.name}`} className="font-mono text-green-600 hover:underline">
+                  {item.name}
                 </a>
                 <span className="text-sm text-gray-500">in {item.count} projects</span>
               </li>
