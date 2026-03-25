@@ -39,10 +39,13 @@ export default function PackagePage() {
   return (
     <main className="min-h-screen p-8 bg-gray-50">
       <div className="max-w-3xl mx-auto">
-        <a href="/" className="text-blue-600 hover:underline mb-4 inline-block">← Back to search</a>
+        {/* Исправленная ссылка назад с параметром q */}
+        <a href={`/?q=${name}`} className="text-blue-600 hover:underline mb-4 inline-block">
+          ← Back to search
+        </a>
         
         <h1 className="text-3xl font-bold mb-2">{name}</h1>
-        <p className="text-gray-600 mb-6">Комплементарные библиотеки для {name}</p>
+        <p className="text-gray-600 mb-6">Complementary libraries for {name}</p>
 
         <h2 className="text-xl font-semibold mb-4">Complementary (often used together)</h2>
         {complementary.length > 0 ? (
