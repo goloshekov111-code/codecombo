@@ -10,8 +10,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
-// Ключ Libraries.io прямо в коде
-const LIBRARIES_IO_KEY = 'dbc597daeff2ad84e525ad4a7937d664';
+const LIBRARIES_IO_KEY = process.env.NEXT_PUBLIC_LIBRARIES_IO_KEY;
 
 export default function Home() {
   const [query, setQuery] = useState('');
@@ -27,11 +26,19 @@ export default function Home() {
   const inputRef = useRef(null);
   const suggestionsRef = useRef(null);
 
+  // Загрузка истории
   useEffect(() => {
     const saved = localStorage.getItem('codecombo_history');
     if (saved) setHistory(JSON.parse(saved));
   }, []);
 
+  // Загрузка состояния тумблера
+  useEffect(() => {
+    const saved = localStorage.getItem('codecombo_showDeps');
+    if (saved) setShowDeps(JSON.parse(saved));
+  }, []);
+
+  // Авто-поиск из параметра q
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const q = params.get('q');
@@ -41,6 +48,17 @@ export default function Home() {
     }
   }, []);
 
+  // Автоматический поиск при переключении тумблера
+  useEffect(() => {
+    if (query) search(query);
+  }, [showDeps]);
+
+  // Сохранение состояния тумблера
+  useEffect(() => {
+    localStorage.setItem('codecombo_showDeps', JSON.stringify(showDeps));
+  }, [showDeps]);
+
+  // Закрытие подсказок при клике вне
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (suggestionsRef.current && !suggestionsRef.current.contains(e.target) && inputRef.current !== e.target) {
@@ -82,21 +100,23 @@ export default function Home() {
 
     try {
       // 1. Похожие библиотеки (Libraries.io API)
-      try {
-        const response = await axios.get('https://libraries.io/api/search', {
-          params: {
-            q: searchQuery,
-            api_key: LIBRARIES_IO_KEY,
-            per_page: 5
-          }
-        });
-        const formatted = response.data.map(item => ({
-          name: item.name,
-          description: item.description || 'No description'
-        }));
-        setSimilar(formatted);
-      } catch (e) {
-        console.error('Libraries.io error:', e);
+      if (LIBRARIES_IO_KEY) {
+        try {
+          const response = await axios.get('https://libraries.io/api/search', {
+            params: {
+              q: searchQuery,
+              api_key: LIBRARIES_IO_KEY,
+              per_page: 5
+            }
+          });
+          const formatted = response.data.map(item => ({
+            name: item.name,
+            description: item.description || 'No description'
+          }));
+          setSimilar(formatted);
+        } catch (e) {
+          console.error('Libraries.io error:', e);
+        }
       }
 
       // 2. Комплементарные (co_occurrence)
