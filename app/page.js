@@ -48,9 +48,11 @@ export default function Home() {
     }
   }, []);
 
-  // Автоматический поиск при переключении тумблера
+  // АВТОМАТИЧЕСКИЙ ПОИСК ПРИ ПЕРЕКЛЮЧЕНИИ ТУМБЛЕРА
   useEffect(() => {
-    if (query) search(query);
+    if (query) {
+      search(query);
+    }
   }, [showDeps]);
 
   // Сохранение состояния тумблера
