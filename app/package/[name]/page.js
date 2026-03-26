@@ -20,25 +20,18 @@ export default function PackagePage() {
     const fetchData = async () => {
       setLoading(true);
       
-      // Ищем связи в обе стороны
-      const { data: compData, error: compErr } = await supabase
+      const { data: compData } = await supabase
         .from('co_occurrence')
         .select('package_a, package_b, count')
         .or(`package_a.eq.${name},package_b.eq.${name}`)
         .order('count', { ascending: false })
         .limit(20);
 
-      if (compErr) {
-        console.error(compErr);
-        setComplementary([]);
-      } else {
-        // Форматируем: показываем ту библиотеку, которая не равна name
-        const formatted = compData.map(item => ({
-          name: item.package_a === name ? item.package_b : item.package_a,
-          count: item.count
-        }));
-        setComplementary(formatted);
-      }
+      const formatted = (compData || []).map(item => ({
+        name: item.package_a === name ? item.package_b : item.package_a,
+        count: item.count
+      }));
+      setComplementary(formatted);
       setLoading(false);
     };
 
@@ -54,8 +47,8 @@ export default function PackagePage() {
           ← Back to search
         </a>
         
-        <h1 className="text-3xl font-bold mb-2">{name}</h1>
-        <p className="text-gray-600 mb-6">Complementary libraries for {name}</p>
+        <h1 className="text-3xl font-bold mb-2">{decodeURIComponent(name)}</h1>
+        <p className="text-gray-600 mb-6">Complementary libraries for {decodeURIComponent(name)}</p>
 
         <h2 className="text-xl font-semibold mb-4">Complementary (often used together)</h2>
         {complementary.length > 0 ? (
