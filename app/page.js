@@ -10,7 +10,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
-const LIBRARIES_IO_KEY = process.env.NEXT_PUBLIC_LIBRARIES_IO_KEY;
+const LIBRARIES_IO_KEY = 'dbc597daeff2ad84e525ad4a7937d664';
 
 export default function Home() {
   const [query, setQuery] = useState('');
