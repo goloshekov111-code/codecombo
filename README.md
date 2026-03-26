@@ -1,36 +1,50 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# 🧩 CodeCombo
 
-## Getting Started
+**Stop guessing which libraries work together.**  
+CodeCombo analyzes thousands of popular GitHub projects to show you what developers *actually* use together.
 
-First, run the development server:
+🔗 **Try it now:** [codecombo-search.vercel.app](https://codecombo-search.vercel.app)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+---
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## ✨ What it does
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+- **Complementary search** — enter a library and see what others often install alongside it
+- **Library pages** — each package gets its own page with its own complementary list
+- **Dependency explorer** — toggle to see technical dependencies
+- **Auto‑complete, history, EN/RU interface** — everything you expect
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## 🎯 Example
 
-To learn more about Next.js, take a look at the following resources:
+Type `passport` and CodeCombo will show you:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+> 🧩 **Often used together**  
+> • `stripe` — in 2,156 projects  
+> • `sendgrid` — in 1,892 projects  
+> • `redis` — in 1,456 projects  
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Not just “similar” — real-world data from thousands of GitHub projects.  
+**Tens of thousands of library pairs** — only what actually works together.
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🔮 Roadmap
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Phase | Features |
+|-------|----------|
+| **Now** | ✅ Complementary search, library pages, thousands of repos analyzed |
+| **Next** | 🚧 More data, better suggestions, project constructor |
+| **Future** | 🤖 AI recommendations, private repos, B2B tools |
+
+---
+
+## 📬 Feedback
+
+Found a bug? Have an idea?  
+[Open an issue](https://github.com/goloshekov111-code/codecombo/issues/new) — I'd love to hear from you.
+
+---
+
+**Built with ❤️ for developers who hate guesswork.**
