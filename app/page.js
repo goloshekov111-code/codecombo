@@ -10,7 +10,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
-const LIBRARIES_IO_KEY = 'dbc597daeff2ad84e525ad4a7937d664';
+const LIBRARIES_IO_KEY = process.env.NEXT_PUBLIC_LIBRARIES_IO_KEY;
 
 export default function Home() {
   const [query, setQuery] = useState('');
@@ -93,7 +93,6 @@ export default function Home() {
               per_page: 5
             }
           });
-          // Libraries.io возвращает массив объектов, у каждого есть `name` и `description`
           const formatted = response.data.map(item => ({
             name: item.name,
             description: item.description || 'No description'
@@ -112,13 +111,12 @@ export default function Home() {
         .order('count', { ascending: false })
         .limit(10);
       if (compErr) throw compErr;
-      
-      // Форматируем: показываем ту библиотеку, которая не равна searchQuery
-      const formatted = (compData || []).map(item => ({
+
+      const formattedComp = (compData || []).map(item => ({
         name: item.package_a === searchQuery.toLowerCase() ? item.package_b : item.package_a,
         count: item.count
       }));
-      setComplementary(formatted);
+      setComplementary(formattedComp);
 
       // 3. Зависимости (если включен тумблер)
       if (showDeps) {
@@ -131,10 +129,10 @@ export default function Home() {
         setDependencies(depsData || []);
       }
 
-      // Отправляем событие в аналитику
+      // Аналитика
       track('search', {
         query: searchQuery,
-        results: formatted.length,
+        results: formattedComp.length,
         similar: similar.length
       });
     } catch (err) {
