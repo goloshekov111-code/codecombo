@@ -34,9 +34,9 @@ Not just “similar” — real-world data from thousands of GitHub projects.
 
 | Phase | Features |
 |-------|----------|
-| **Now** | ✅ Complementary search, library pages, thousands of repos analyzed |
+| **Now** | ✅ Complementary search, library pages, thousands of repositories analyzed |
 | **Next** | 🚧 More data, better suggestions, project constructor |
-| **Future** | 🤖 AI recommendations, private repos, B2B tools |
+| **Future** | 🤖 AI recommendations, private repositories, B2B tools |
 
 ---
 
