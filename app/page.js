@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import axios from 'axios';
 import { track } from '@vercel/analytics';
 
 const supabase = createClient(
@@ -9,8 +10,12 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
+// Ключ Libraries.io прямо в коде
+const LIBRARIES_IO_KEY = 'dbc597daeff2ad84e525ad4a7937d664';
+
 export default function Home() {
   const [query, setQuery] = useState('');
+  const [similar, setSimilar] = useState([]);
   const [complementary, setComplementary] = useState([]);
   const [dependencies, setDependencies] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -22,13 +27,11 @@ export default function Home() {
   const inputRef = useRef(null);
   const suggestionsRef = useRef(null);
 
-  // Загрузка истории
   useEffect(() => {
     const saved = localStorage.getItem('codecombo_history');
     if (saved) setHistory(JSON.parse(saved));
   }, []);
 
-  // Авто-поиск из параметра q
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const q = params.get('q');
@@ -38,7 +41,6 @@ export default function Home() {
     }
   }, []);
 
-  // Закрытие подсказок при клике вне
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (suggestionsRef.current && !suggestionsRef.current.contains(e.target) && inputRef.current !== e.target) {
@@ -72,13 +74,32 @@ export default function Home() {
     if (!searchQuery.trim()) return;
     setLoading(true);
     setError('');
+    setSimilar([]);
     setComplementary([]);
     setDependencies([]);
     saveToHistory(searchQuery);
     setSuggestions([]);
 
     try {
-      // Комплементарные (co_occurrence)
+      // 1. Похожие библиотеки (Libraries.io API)
+      try {
+        const response = await axios.get('https://libraries.io/api/search', {
+          params: {
+            q: searchQuery,
+            api_key: LIBRARIES_IO_KEY,
+            per_page: 5
+          }
+        });
+        const formatted = response.data.map(item => ({
+          name: item.name,
+          description: item.description || 'No description'
+        }));
+        setSimilar(formatted);
+      } catch (e) {
+        console.error('Libraries.io error:', e);
+      }
+
+      // 2. Комплементарные (co_occurrence)
       const { data: compData, error: compErr } = await supabase
         .from('co_occurrence')
         .select('package_a, package_b, count')
@@ -93,7 +114,7 @@ export default function Home() {
       }));
       setComplementary(formattedComp);
 
-      // Зависимости (если включен тумблер)
+      // 3. Зависимости (если включен тумблер)
       if (showDeps) {
         const { data: depsData, error: depsErr } = await supabase
           .from('dependencies')
@@ -104,10 +125,10 @@ export default function Home() {
         setDependencies(depsData || []);
       }
 
-      // Аналитика
       track('search', {
         query: searchQuery,
-        results: formattedComp.length
+        results: formattedComp.length,
+        similar: similar.length
       });
     } catch (err) {
       setError(err.message);
@@ -139,6 +160,7 @@ export default function Home() {
       placeholder: 'Enter library name, e.g.: passport',
       search: 'Search',
       showDeps: 'Show dependencies',
+      similar: 'Similar libraries (alternatives)',
       complementary: 'Complementary (often used together)',
       dependencies: 'Dependencies (required)',
       notFound: 'Nothing found. Try another name.',
@@ -146,7 +168,7 @@ export default function Home() {
       copy: 'Copy install command',
       share: 'Share',
       recent: 'Recent searches',
-      sources: 'Data from GitHub repositories and Supabase'
+      sources: 'Data from GitHub repositories and Libraries.io'
     },
     ru: {
       title: 'CodeCombo',
@@ -155,6 +177,7 @@ export default function Home() {
       placeholder: 'Введите название библиотеки, например: passport',
       search: 'Найти',
       showDeps: 'Показывать зависимости',
+      similar: 'Похожие библиотеки (альтернативы)',
       complementary: 'Комплементарные (часто используют вместе)',
       dependencies: 'Зависимости (обязательные)',
       notFound: 'Ничего не найдено. Попробуйте другое название.',
@@ -162,7 +185,7 @@ export default function Home() {
       copy: 'Скопировать команду установки',
       share: 'Поделиться',
       recent: 'Недавние запросы',
-      sources: 'Данные из репозиториев GitHub и Supabase'
+      sources: 'Данные из репозиториев GitHub и Libraries.io'
     }
   };
 
@@ -252,6 +275,23 @@ export default function Home() {
 
         {error && <div className="bg-red-100 text-red-700 p-4 rounded-lg mb-4">{text.error}: {error}</div>}
 
+        {/* Похожие библиотеки */}
+        {similar.length > 0 && (
+          <div className="bg-white p-6 rounded-lg shadow mb-6">
+            <h2 className="text-xl font-semibold mb-2">{text.similar}</h2>
+            <ul className="space-y-2">
+              {similar.map((item, idx) => (
+                <li key={idx} className="border-b pb-2">
+                  <a href={`/package/${item.name}`} className="font-mono text-blue-600 hover:underline">
+                    {item.name}
+                  </a>
+                  <p className="text-sm text-gray-500">{item.description?.substring(0, 100)}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {/* Комплементарные */}
         {complementary.length > 0 && (
           <div className="bg-white p-6 rounded-lg shadow mb-6">
@@ -287,7 +327,7 @@ export default function Home() {
           </div>
         )}
 
-        {!loading && !error && complementary.length === 0 && query && (
+        {!loading && !error && complementary.length === 0 && similar.length === 0 && query && (
           <div className="text-center text-gray-500 mt-8">{text.notFound}</div>
         )}
 
