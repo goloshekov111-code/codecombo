@@ -2,14 +2,19 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import axios from 'axios';
+import { track } from '@vercel/analytics';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
+const LIBRARIES_IO_KEY = process.env.NEXT_PUBLIC_LIBRARIES_IO_KEY;
+
 export default function Home() {
   const [query, setQuery] = useState('');
+  const [similar, setSimilar] = useState([]);
   const [complementary, setComplementary] = useState([]);
   const [dependencies, setDependencies] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -20,76 +25,6 @@ export default function Home() {
   const [suggestions, setSuggestions] = useState([]);
   const inputRef = useRef(null);
   const suggestionsRef = useRef(null);
-
-  // Функция поиска
-  const search = async (searchQuery = query) => {
-    if (!searchQuery.trim()) return;
-    setLoading(true);
-    setError('');
-    setComplementary([]);
-    setDependencies([]);
-    saveToHistory(searchQuery);
-    setSuggestions([]);
-
-    try {
-      const { data: compData, error: compErr } = await supabase
-        .from('co_occurrence')
-        .select('package_b, count')
-        .eq('package_a', searchQuery.toLowerCase())
-        .order('count', { ascending: false })
-        .limit(10);
-      if (compErr) throw compErr;
-      setComplementary(compData || []);
-
-      if (showDeps) {
-        const { data: depsData, error: depsErr } = await supabase
-          .from('dependencies')
-          .select('package_name, ecosystem, is_dev_dep')
-          .eq('package_name', searchQuery.toLowerCase())
-          .limit(10);
-        if (depsErr) throw depsErr;
-        setDependencies(depsData || []);
-      }
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Сохранение истории
-  const saveToHistory = (q) => {
-    const newHistory = [q, ...history.filter(h => h !== q)].slice(0, 5);
-    setHistory(newHistory);
-    localStorage.setItem('codecombo_history', JSON.stringify(newHistory));
-  };
-
-  // Автодополнение
-  const fetchSuggestions = async (value) => {
-    if (value.length < 2) {
-      setSuggestions([]);
-      return;
-    }
-    const { data } = await supabase
-      .from('repositories')
-      .select('name')
-      .ilike('name', `${value}%`)
-      .limit(5);
-    setSuggestions(data?.map(r => r.name) || []);
-  };
-
-  const copyInstallCommand = () => {
-    if (complementary.length === 0) return;
-    const packages = complementary.map(p => p.package_b).join(' ');
-    navigator.clipboard.writeText(`npm install ${packages}`);
-    alert(lang === 'en' ? 'Copied!' : 'Скопировано!');
-  };
-
-  const shareLink = () => {
-    const url = `${window.location.origin}?q=${encodeURIComponent(query)}`;
-    navigator.clipboard.writeText(url);
-    alert(lang === 'en' ? 'Link copied!' : 'Ссылка скопирована!');
-  };
 
   // Загрузка истории
   useEffect(() => {
@@ -118,6 +53,112 @@ export default function Home() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const saveToHistory = (q) => {
+    const newHistory = [q, ...history.filter(h => h !== q)].slice(0, 5);
+    setHistory(newHistory);
+    localStorage.setItem('codecombo_history', JSON.stringify(newHistory));
+  };
+
+  const fetchSuggestions = async (value) => {
+    if (value.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    const { data } = await supabase
+      .from('repositories')
+      .select('name')
+      .ilike('name', `${value}%`)
+      .limit(5);
+    setSuggestions(data?.map(r => r.name) || []);
+  };
+
+  const search = async (searchQuery = query) => {
+    if (!searchQuery.trim()) return;
+    setLoading(true);
+    setError('');
+    setSimilar([]);
+    setComplementary([]);
+    setDependencies([]);
+    saveToHistory(searchQuery);
+    setSuggestions([]);
+
+    try {
+      // 1. Похожие библиотеки (Libraries.io API)
+      if (LIBRARIES_IO_KEY) {
+        try {
+          const response = await axios.get('https://libraries.io/api/search', {
+            params: {
+              q: searchQuery,
+              api_key: LIBRARIES_IO_KEY,
+              per_page: 5
+            }
+          });
+          // Libraries.io возвращает массив объектов, у каждого есть `name` и `description`
+          const formatted = response.data.map(item => ({
+            name: item.name,
+            description: item.description || 'No description'
+          }));
+          setSimilar(formatted);
+        } catch (e) {
+          console.error('Libraries.io error:', e);
+        }
+      }
+
+      // 2. Комплементарные (co_occurrence)
+      const { data: compData, error: compErr } = await supabase
+        .from('co_occurrence')
+        .select('package_a, package_b, count')
+        .or(`package_a.eq.${searchQuery.toLowerCase()},package_b.eq.${searchQuery.toLowerCase()}`)
+        .order('count', { ascending: false })
+        .limit(10);
+      if (compErr) throw compErr;
+      
+      // Форматируем: показываем ту библиотеку, которая не равна searchQuery
+      const formatted = (compData || []).map(item => ({
+        name: item.package_a === searchQuery.toLowerCase() ? item.package_b : item.package_a,
+        count: item.count
+      }));
+      setComplementary(formatted);
+
+      // 3. Зависимости (если включен тумблер)
+      if (showDeps) {
+        const { data: depsData, error: depsErr } = await supabase
+          .from('dependencies')
+          .select('package_name, ecosystem, is_dev_dep')
+          .eq('package_name', searchQuery.toLowerCase())
+          .limit(10);
+        if (depsErr) throw depsErr;
+        setDependencies(depsData || []);
+      }
+
+      // Отправляем событие в аналитику
+      track('search', {
+        query: searchQuery,
+        results: formatted.length,
+        similar: similar.length
+      });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copyInstallCommand = () => {
+    if (complementary.length === 0) return;
+    const packages = complementary.map(p => p.name).join(' ');
+    navigator.clipboard.writeText(`npm install ${packages}`);
+    alert(lang === 'en' ? 'Copied!' : 'Скопировано!');
+    track('copy_command', { query, packages });
+  };
+
+  const shareLink = () => {
+    const url = `${window.location.origin}?q=${encodeURIComponent(query)}`;
+    navigator.clipboard.writeText(url);
+    alert(lang === 'en' ? 'Link copied!' : 'Ссылка скопирована!');
+    track('share', { query });
+  };
+
   const t = {
     en: {
       title: 'CodeCombo',
@@ -126,6 +167,7 @@ export default function Home() {
       placeholder: 'Enter library name, e.g.: passport',
       search: 'Search',
       showDeps: 'Show dependencies',
+      similar: 'Similar libraries (alternatives)',
       complementary: 'Complementary (often used together)',
       dependencies: 'Dependencies (required)',
       notFound: 'Nothing found. Try another name.',
@@ -133,7 +175,7 @@ export default function Home() {
       copy: 'Copy install command',
       share: 'Share',
       recent: 'Recent searches',
-      sources: 'Data from GitHub repositories and Supabase'
+      sources: 'Data from GitHub repositories and Libraries.io'
     },
     ru: {
       title: 'CodeCombo',
@@ -142,6 +184,7 @@ export default function Home() {
       placeholder: 'Введите название библиотеки, например: passport',
       search: 'Найти',
       showDeps: 'Показывать зависимости',
+      similar: 'Похожие библиотеки (альтернативы)',
       complementary: 'Комплементарные (часто используют вместе)',
       dependencies: 'Зависимости (обязательные)',
       notFound: 'Ничего не найдено. Попробуйте другое название.',
@@ -149,7 +192,7 @@ export default function Home() {
       copy: 'Скопировать команду установки',
       share: 'Поделиться',
       recent: 'Недавние запросы',
-      sources: 'Данные из репозиториев GitHub и Supabase'
+      sources: 'Данные из репозиториев GitHub и Libraries.io'
     }
   };
 
@@ -239,6 +282,24 @@ export default function Home() {
 
         {error && <div className="bg-red-100 text-red-700 p-4 rounded-lg mb-4">{text.error}: {error}</div>}
 
+        {/* Похожие библиотеки */}
+        {similar.length > 0 && (
+          <div className="bg-white p-6 rounded-lg shadow mb-6">
+            <h2 className="text-xl font-semibold mb-2">{text.similar}</h2>
+            <ul className="space-y-2">
+              {similar.map((item, idx) => (
+                <li key={idx} className="border-b pb-2">
+                  <a href={`/package/${item.name}`} className="font-mono text-blue-600 hover:underline">
+                    {item.name}
+                  </a>
+                  <p className="text-sm text-gray-500">{item.description?.substring(0, 100)}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Комплементарные */}
         {complementary.length > 0 && (
           <div className="bg-white p-6 rounded-lg shadow mb-6">
             <div className="flex justify-between items-center mb-2">
@@ -248,8 +309,8 @@ export default function Home() {
             <ul className="space-y-2">
               {complementary.map((item, idx) => (
                 <li key={idx} className="border-b pb-2 flex justify-between">
-                  <a href={`/package/${item.package_b}`} className="font-mono text-green-600 hover:underline">
-                    {item.package_b}
+                  <a href={`/package/${item.name}`} className="font-mono text-green-600 hover:underline">
+                    {item.name}
                   </a>
                   <span className="text-sm text-gray-500">in {item.count} projects</span>
                 </li>
@@ -258,6 +319,7 @@ export default function Home() {
           </div>
         )}
 
+        {/* Зависимости */}
         {showDeps && dependencies.length > 0 && (
           <div className="bg-white p-6 rounded-lg shadow mb-6">
             <h2 className="text-xl font-semibold mb-2">{text.dependencies}</h2>
@@ -272,7 +334,7 @@ export default function Home() {
           </div>
         )}
 
-        {!loading && !error && complementary.length === 0 && query && (
+        {!loading && !error && complementary.length === 0 && similar.length === 0 && query && (
           <div className="text-center text-gray-500 mt-8">{text.notFound}</div>
         )}
 
