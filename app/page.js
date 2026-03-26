@@ -48,7 +48,7 @@ export default function Home() {
     }
   }, []);
 
-  // АВТОМАТИЧЕСКИЙ ПОИСК ПРИ ПЕРЕКЛЮЧЕНИИ ТУМБЛЕРА
+  // Автоматический поиск при переключении тумблера
   useEffect(() => {
     if (query) {
       search(query);
@@ -101,7 +101,7 @@ export default function Home() {
     setSuggestions([]);
 
     try {
-      // 1. Похожие библиотеки (Libraries.io API)
+      // 1. Похожие библиотеки (Libraries.io API) с фильтром длинных имён
       if (LIBRARIES_IO_KEY) {
         try {
           const response = await axios.get('https://libraries.io/api/search', {
@@ -111,10 +111,13 @@ export default function Home() {
               per_page: 5
             }
           });
-          const formatted = response.data.map(item => ({
-            name: item.name,
-            description: item.description || 'No description'
-          }));
+          // Фильтруем пакеты с двоеточием и слишком длинные имена
+          const formatted = response.data
+            .filter(item => !item.name.includes(':') && item.name.length < 50)
+            .map(item => ({
+              name: item.name,
+              description: item.description || 'No description'
+            }));
           setSimilar(formatted);
         } catch (e) {
           console.error('Libraries.io error:', e);
