@@ -12,13 +12,13 @@ const supabase = createClient(
 export default function PackagePage() {
   const params = useParams();
   const [name, setName] = useState('');
+  const [metadata, setMetadata] = useState(null);
   const [complementary, setComplementary] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const resolveParams = async () => {
       const resolved = await params;
-      // Декодируем имя из URL
       setName(decodeURIComponent(resolved.name));
     };
     resolveParams();
@@ -30,16 +30,28 @@ export default function PackagePage() {
     const fetchData = async () => {
       setLoading(true);
       
-      const { data: compData, error } = await supabase
+      // 1. Метаданные из package_metadata
+      const { data: metaData, error: metaError } = await supabase
+        .from('package_metadata')
+        .select('*')
+        .eq('name', name)
+        .maybeSingle();
+      
+      if (metaError) {
+        console.error('Ошибка загрузки метаданных:', metaError);
+      }
+      setMetadata(metaData);
+      
+      // 2. Комплементарные связи (co_occurrence)
+      const { data: compData, error: compErr } = await supabase
         .from('co_occurrence')
         .select('package_a, package_b, count')
         .or(`package_a.eq.${name},package_b.eq.${name}`)
         .order('count', { ascending: false })
         .limit(20);
-
-      if (error) {
-        console.error(error);
-        setComplementary([]);
+      
+      if (compErr) {
+        console.error(compErr);
       } else {
         const formatted = (compData || []).map(item => ({
           name: item.package_a === name ? item.package_b : item.package_a,
@@ -47,6 +59,7 @@ export default function PackagePage() {
         }));
         setComplementary(formatted);
       }
+      
       setLoading(false);
     };
 
@@ -55,6 +68,14 @@ export default function PackagePage() {
 
   if (loading) return <div className="p-8 text-center">Loading...</div>;
 
+  // Форматирование чисел
+  const formatNumber = (num) => {
+    if (!num) return '—';
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `${(num / 1000).toFixed(0)}k`;
+    return num.toString();
+  };
+
   return (
     <main className="min-h-screen p-8 bg-gray-50">
       <div className="max-w-3xl mx-auto">
@@ -62,12 +83,47 @@ export default function PackagePage() {
           ← Back to search
         </a>
         
+        {/* Заголовок и описание */}
         <h1 className="text-3xl font-bold mb-2">{name}</h1>
-        <p className="text-gray-600 mb-6">Complementary libraries for {name}</p>
+        {metadata?.description && (
+          <p className="text-gray-600 mb-4">{metadata.description}</p>
+        )}
+        
+        {/* Статистика */}
+        <div className="flex flex-wrap gap-4 mb-6 text-sm text-gray-500">
+          {metadata?.stars > 0 && (
+            <span>⭐ {formatNumber(metadata.stars)} stars</span>
+          )}
+          {metadata?.downloads > 0 && (
+            <span>📦 {formatNumber(metadata.downloads)} downloads/month</span>
+          )}
+          {metadata?.license && (
+            <span>📄 {metadata.license}</span>
+          )}
+        </div>
+        
+        {/* Ссылки */}
+        {(metadata?.github_url || metadata?.npm_url) && (
+          <div className="flex gap-4 mb-8">
+            {metadata?.github_url && (
+              <a href={metadata.github_url} target="_blank" rel="noopener noreferrer" 
+                 className="text-blue-600 hover:underline">
+                🔗 GitHub
+              </a>
+            )}
+            {metadata?.npm_url && (
+              <a href={metadata.npm_url} target="_blank" rel="noopener noreferrer" 
+                 className="text-blue-600 hover:underline">
+                📦 npm
+              </a>
+            )}
+          </div>
+        )}
 
-        <h2 className="text-xl font-semibold mb-4">Complementary (often used together)</h2>
+        {/* Комплементарные */}
+        <h2 className="text-xl font-semibold mb-4">🧩 Complementary (often used together)</h2>
         {complementary.length > 0 ? (
-          <ul className="space-y-2">
+          <ul className="space-y-2 mb-8">
             {complementary.map((item, idx) => (
               <li key={idx} className="border-b pb-2 flex justify-between">
                 <a href={`/package/${encodeURIComponent(item.name)}`} className="font-mono text-green-600 hover:underline">
@@ -78,7 +134,7 @@ export default function PackagePage() {
             ))}
           </ul>
         ) : (
-          <p className="text-gray-500">No complementary libraries found yet.</p>
+          <p className="text-gray-500 mb-8">No complementary libraries found yet.</p>
         )}
       </div>
     </main>
