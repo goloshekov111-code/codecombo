@@ -26,19 +26,16 @@ export default function Home() {
   const inputRef = useRef(null);
   const suggestionsRef = useRef(null);
 
-  // Загрузка истории
   useEffect(() => {
     const saved = localStorage.getItem('codecombo_history');
     if (saved) setHistory(JSON.parse(saved));
   }, []);
 
-  // Загрузка состояния тумблера
   useEffect(() => {
     const saved = localStorage.getItem('codecombo_showDeps');
     if (saved) setShowDeps(JSON.parse(saved));
   }, []);
 
-  // Авто-поиск из параметра q
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const q = params.get('q');
@@ -48,19 +45,16 @@ export default function Home() {
     }
   }, []);
 
-  // Автоматический поиск при переключении тумблера
   useEffect(() => {
     if (query) {
       search(query);
     }
   }, [showDeps]);
 
-  // Сохранение состояния тумблера
   useEffect(() => {
     localStorage.setItem('codecombo_showDeps', JSON.stringify(showDeps));
   }, [showDeps]);
 
-  // Закрытие подсказок при клике вне
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (suggestionsRef.current && !suggestionsRef.current.contains(e.target) && inputRef.current !== e.target) {
@@ -101,7 +95,7 @@ export default function Home() {
     setSuggestions([]);
 
     try {
-      // 1. Похожие библиотеки (Libraries.io API) с фильтром длинных имён
+      // 1. Похожие библиотеки (Libraries.io API)
       if (LIBRARIES_IO_KEY) {
         try {
           const response = await axios.get('https://libraries.io/api/search', {
@@ -111,13 +105,10 @@ export default function Home() {
               per_page: 5
             }
           });
-          // Фильтруем пакеты с двоеточием и слишком длинные имена
-          const formatted = response.data
-            .filter(item => !item.name.includes(':') && item.name.length < 50)
-            .map(item => ({
-              name: item.name,
-              description: item.description || 'No description'
-            }));
+          const formatted = response.data.map(item => ({
+            name: item.name,
+            description: item.description || 'No description'
+          }));
           setSimilar(formatted);
         } catch (e) {
           console.error('Libraries.io error:', e);
@@ -300,14 +291,14 @@ export default function Home() {
 
         {error && <div className="bg-red-100 text-red-700 p-4 rounded-lg mb-4">{text.error}: {error}</div>}
 
-        {/* Похожие библиотеки */}
+        {/* Похожие библиотеки (Similar) */}
         {similar.length > 0 && (
           <div className="bg-white p-6 rounded-lg shadow mb-6">
             <h2 className="text-xl font-semibold mb-2">{text.similar}</h2>
             <ul className="space-y-2">
               {similar.map((item, idx) => (
                 <li key={idx} className="border-b pb-2">
-                  <a href={`/package/${item.name}`} className="font-mono text-blue-600 hover:underline">
+                  <a href={`/package/${encodeURIComponent(item.name)}`} className="font-mono text-blue-600 hover:underline">
                     {item.name}
                   </a>
                   <p className="text-sm text-gray-500">{item.description?.substring(0, 100)}</p>
@@ -327,7 +318,7 @@ export default function Home() {
             <ul className="space-y-2">
               {complementary.map((item, idx) => (
                 <li key={idx} className="border-b pb-2 flex justify-between">
-                  <a href={`/package/${item.name}`} className="font-mono text-green-600 hover:underline">
+                  <a href={`/package/${encodeURIComponent(item.name)}`} className="font-mono text-green-600 hover:underline">
                     {item.name}
                   </a>
                   <span className="text-sm text-gray-500">in {item.count} projects</span>
@@ -337,14 +328,16 @@ export default function Home() {
           </div>
         )}
 
-        {/* Зависимости */}
+        {/* Зависимости (кликабельные) */}
         {showDeps && dependencies.length > 0 && (
           <div className="bg-white p-6 rounded-lg shadow mb-6">
             <h2 className="text-xl font-semibold mb-2">{text.dependencies}</h2>
             <ul className="space-y-2">
               {dependencies.map((dep, idx) => (
                 <li key={idx} className="border-b pb-2">
-                  <span className="font-mono text-purple-600">{dep.package_name}</span>
+                  <a href={`/package/${encodeURIComponent(dep.package_name)}`} className="font-mono text-purple-600 hover:underline">
+                    {dep.package_name}
+                  </a>
                   <span className="text-sm text-gray-500 ml-2">({dep.ecosystem}) {dep.is_dev_dep ? 'dev' : 'prod'}</span>
                 </li>
               ))}
