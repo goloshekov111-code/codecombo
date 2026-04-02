@@ -25,7 +25,6 @@ export default function Home() {
   const [suggestions, setSuggestions] = useState([]);
   const inputRef = useRef(null);
   const suggestionsRef = useRef(null);
-  const hasSearched = useRef(false); // Флаг, чтобы не искать повторно при возврате
 
   // Загрузка истории
   useEffect(() => {
@@ -39,25 +38,30 @@ export default function Home() {
     if (saved) setShowDeps(JSON.parse(saved));
   }, []);
 
-  // Авто-поиск из параметра q (с проверкой кэша и флага)
+  // Авто-поиск из параметра q (с проверкой кэша и флага в sessionStorage)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const q = params.get('q');
-    if (q && !hasSearched.current) {
-      hasSearched.current = true;
+    if (q) {
       setQuery(q);
       
-      // Пытаемся загрузить из кэша
-      const cached = sessionStorage.getItem(`search_${q}`);
-      if (cached) {
-        console.log('📦 Загружено из кэша для', q);
-        const { similar: cachedSimilar, complementary: cachedComplementary, dependencies: cachedDeps } = JSON.parse(cached);
-        setSimilar(cachedSimilar);
-        setComplementary(cachedComplementary);
-        setDependencies(cachedDeps);
-        setLoading(false);
+      // Проверяем, был ли уже поиск для этого запроса
+      const alreadySearched = sessionStorage.getItem(`searched_${q}`);
+      if (alreadySearched) {
+        // Поиск уже был, загружаем из кэша
+        const cached = sessionStorage.getItem(`search_${q}`);
+        if (cached) {
+          console.log('📦 Загружено из кэша для', q);
+          const { similar: cachedSimilar, complementary: cachedComplementary, dependencies: cachedDeps } = JSON.parse(cached);
+          setSimilar(cachedSimilar);
+          setComplementary(cachedComplementary);
+          setDependencies(cachedDeps);
+          setLoading(false);
+        }
       } else {
-        console.log('🔍 Кэша нет, выполняем поиск для', q);
+        // Первый поиск — выполняем
+        sessionStorage.setItem(`searched_${q}`, 'true');
+        console.log('🔍 Первый поиск для', q);
         search(q);
       }
     }
