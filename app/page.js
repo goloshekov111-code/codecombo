@@ -25,6 +25,7 @@ export default function Home() {
   const [suggestions, setSuggestions] = useState([]);
   const inputRef = useRef(null);
   const suggestionsRef = useRef(null);
+  const hasSearched = useRef(false); // Флаг, чтобы не искать повторно при возврате
 
   // Загрузка истории
   useEffect(() => {
@@ -38,12 +39,14 @@ export default function Home() {
     if (saved) setShowDeps(JSON.parse(saved));
   }, []);
 
-  // Авто-поиск из параметра q (с кэшем)
+  // Авто-поиск из параметра q (с проверкой кэша и флага)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const q = params.get('q');
-    if (q) {
+    if (q && !hasSearched.current) {
+      hasSearched.current = true;
       setQuery(q);
+      
       // Пытаемся загрузить из кэша
       const cached = sessionStorage.getItem(`search_${q}`);
       if (cached) {
