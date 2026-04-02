@@ -21,16 +21,9 @@ export default function Home() {
   const [showDeps, setShowDeps] = useState(false);
   const [error, setError] = useState('');
   const [lang, setLang] = useState('en');
-  const [history, setHistory] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
   const inputRef = useRef(null);
   const suggestionsRef = useRef(null);
-
-  // Загрузка истории
-  useEffect(() => {
-    const saved = localStorage.getItem('codecombo_history');
-    if (saved) setHistory(JSON.parse(saved));
-  }, []);
 
   // Загрузка состояния тумблера
   useEffect(() => {
@@ -90,12 +83,6 @@ export default function Home() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const saveToHistory = (q) => {
-    const newHistory = [q, ...history.filter(h => h !== q)].slice(0, 5);
-    setHistory(newHistory);
-    localStorage.setItem('codecombo_history', JSON.stringify(newHistory));
-  };
-
   const fetchSuggestions = async (value) => {
     if (value.length < 2) {
       setSuggestions([]);
@@ -116,7 +103,6 @@ export default function Home() {
     setSimilar([]);
     setComplementary([]);
     setDependencies([]);
-    saveToHistory(searchQuery);
     setSuggestions([]);
 
     try {
@@ -223,7 +209,6 @@ export default function Home() {
       error: 'Error',
       copy: 'Copy install command',
       share: 'Share',
-      recent: 'Recent searches',
       sources: 'Data from GitHub repositories and Libraries.io'
     },
     ru: {
@@ -240,7 +225,6 @@ export default function Home() {
       error: 'Ошибка',
       copy: 'Скопировать команду установки',
       share: 'Поделиться',
-      recent: 'Недавние запросы',
       sources: 'Данные из репозиториев GitHub и Libraries.io'
     }
   };
@@ -263,24 +247,6 @@ export default function Home() {
           <button onClick={() => setLang('en')} className={`px-2 py-1 text-sm rounded ${lang === 'en' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>EN</button>
           <button onClick={() => setLang('ru')} className={`px-2 py-1 text-sm rounded ${lang === 'ru' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>RU</button>
         </div>
-
-        {history.length > 0 && (
-          <div className="mb-4 text-sm">
-            <span className="text-gray-500">{text.recent}:</span>
-            {history.map((h, i) => (
-              <button
-                key={i}
-                onClick={() => {
-                  setQuery(h);
-                  search(h);
-                }}
-                className="ml-2 text-blue-600 hover:underline"
-              >
-                {h}
-              </button>
-            ))}
-          </div>
-        )}
 
         <div className="relative mb-4" ref={suggestionsRef}>
           <input
