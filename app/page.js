@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import axios from 'axios';
 import { track } from '@vercel/analytics';
@@ -26,35 +26,51 @@ export default function Home() {
   const inputRef = useRef(null);
   const suggestionsRef = useRef(null);
 
+  // Загрузка истории
   useEffect(() => {
     const saved = localStorage.getItem('codecombo_history');
     if (saved) setHistory(JSON.parse(saved));
   }, []);
 
+  // Загрузка состояния тумблера
   useEffect(() => {
     const saved = localStorage.getItem('codecombo_showDeps');
     if (saved) setShowDeps(JSON.parse(saved));
   }, []);
 
+  // Авто-поиск из параметра q (с кэшем)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const q = params.get('q');
     if (q) {
       setQuery(q);
-      search(q);
+      // Пытаемся загрузить из кэша
+      const cached = sessionStorage.getItem(`search_${q}`);
+      if (cached) {
+        const { similar: cachedSimilar, complementary: cachedComplementary, dependencies: cachedDeps } = JSON.parse(cached);
+        setSimilar(cachedSimilar);
+        setComplementary(cachedComplementary);
+        setDependencies(cachedDeps);
+        setLoading(false);
+      } else {
+        search(q);
+      }
     }
   }, []);
 
+  // Автоматический поиск при переключении тумблера
   useEffect(() => {
     if (query) {
       search(query);
     }
   }, [showDeps]);
 
+  // Сохранение состояния тумблера
   useEffect(() => {
     localStorage.setItem('codecombo_showDeps', JSON.stringify(showDeps));
   }, [showDeps]);
 
+  // Закрытие подсказок при клике вне
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (suggestionsRef.current && !suggestionsRef.current.contains(e.target) && inputRef.current !== e.target) {
@@ -84,7 +100,7 @@ export default function Home() {
     setSuggestions(data?.map(r => r.name) || []);
   };
 
-  const search = async (searchQuery = query) => {
+  const search = useCallback(async (searchQuery = query) => {
     if (!searchQuery.trim()) return;
     setLoading(true);
     setError('');
@@ -95,7 +111,8 @@ export default function Home() {
     setSuggestions([]);
 
     try {
-      // 1. Похожие библиотеки (Libraries.io API) с фильтром
+      // 1. Похожие библиотеки (Libraries.io API)
+      let similarData = [];
       if (LIBRARIES_IO_KEY) {
         try {
           const response = await axios.get('https://libraries.io/api/search', {
@@ -105,14 +122,13 @@ export default function Home() {
               per_page: 5
             }
           });
-          // Фильтр: убираем пакеты с двоеточием и слишком длинные имена
-          const formatted = response.data
+          similarData = response.data
             .filter(item => !item.name.includes(':') && item.name.length < 50)
             .map(item => ({
               name: item.name,
               description: item.description || 'No description'
             }));
-          setSimilar(formatted);
+          setSimilar(similarData);
         } catch (e) {
           console.error('Libraries.io error:', e);
         }
@@ -127,13 +143,14 @@ export default function Home() {
         .limit(10);
       if (compErr) throw compErr;
 
-      const formattedComp = (compData || []).map(item => ({
+      const complementaryData = (compData || []).map(item => ({
         name: item.package_a === searchQuery.toLowerCase() ? item.package_b : item.package_a,
         count: item.count
       }));
-      setComplementary(formattedComp);
+      setComplementary(complementaryData);
 
       // 3. Зависимости (если включен тумблер)
+      let dependenciesData = [];
       if (showDeps) {
         const { data: depsData, error: depsErr } = await supabase
           .from('dependencies')
@@ -141,20 +158,29 @@ export default function Home() {
           .eq('package_name', searchQuery.toLowerCase())
           .limit(10);
         if (depsErr) throw depsErr;
-        setDependencies(depsData || []);
+        dependenciesData = depsData || [];
+        setDependencies(dependenciesData);
       }
+
+      // Сохраняем в кэш
+      const cacheData = {
+        similar: similarData,
+        complementary: complementaryData,
+        dependencies: dependenciesData
+      };
+      sessionStorage.setItem(`search_${searchQuery}`, JSON.stringify(cacheData));
 
       track('search', {
         query: searchQuery,
-        results: formattedComp.length,
-        similar: similar.length
+        results: complementaryData.length,
+        similar: similarData.length
       });
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [query, showDeps]);
 
   const copyInstallCommand = () => {
     if (complementary.length === 0) return;
@@ -294,7 +320,6 @@ export default function Home() {
 
         {error && <div className="bg-red-100 text-red-700 p-4 rounded-lg mb-4">{text.error}: {error}</div>}
 
-        {/* Похожие библиотеки (Similar) */}
         {similar.length > 0 && (
           <div className="bg-white p-6 rounded-lg shadow mb-6">
             <h2 className="text-xl font-semibold mb-2">{text.similar}</h2>
@@ -311,7 +336,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* Комплементарные */}
         {complementary.length > 0 && (
           <div className="bg-white p-6 rounded-lg shadow mb-6">
             <div className="flex justify-between items-center mb-2">
@@ -331,7 +355,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* Зависимости (кликабельные) */}
         {showDeps && dependencies.length > 0 && (
           <div className="bg-white p-6 rounded-lg shadow mb-6">
             <h2 className="text-xl font-semibold mb-2">{text.dependencies}</h2>
