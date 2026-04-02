@@ -337,7 +337,7 @@ export default function Home() {
             <ul className="space-y-2">
               {similar.map((item, idx) => (
                 <li key={idx} className="border-b pb-2">
-                  <a href={`/package/${encodeURIComponent(item.name)}`} className="font-mono text-blue-600 hover:underline">
+                  <a href={`/package/${encodeURIComponent(item.name)}?q=${encodeURIComponent(query)}`} className="font-mono text-blue-600 hover:underline">
                     {item.name}
                   </a>
                   <p className="text-sm text-gray-500">{item.description?.substring(0, 100)}</p>
@@ -356,7 +356,7 @@ export default function Home() {
             <ul className="space-y-2">
               {complementary.map((item, idx) => (
                 <li key={idx} className="border-b pb-2 flex justify-between">
-                  <a href={`/package/${encodeURIComponent(item.name)}`} className="font-mono text-green-600 hover:underline">
+                  <a href={`/package/${encodeURIComponent(item.name)}?q=${encodeURIComponent(query)}`} className="font-mono text-green-600 hover:underline">
                     {item.name}
                   </a>
                   <span className="text-sm text-gray-500">in {item.count} projects</span>
@@ -372,7 +372,7 @@ export default function Home() {
             <ul className="space-y-2">
               {dependencies.map((dep, idx) => (
                 <li key={idx} className="border-b pb-2">
-                  <a href={`/package/${encodeURIComponent(dep.package_name)}`} className="font-mono text-purple-600 hover:underline">
+                  <a href={`/package/${encodeURIComponent(dep.package_name)}?q=${encodeURIComponent(query)}`} className="font-mono text-purple-600 hover:underline">
                     {dep.package_name}
                   </a>
                   <span className="text-sm text-gray-500 ml-2">({dep.ecosystem}) {dep.is_dev_dep ? 'dev' : 'prod'}</span>
