@@ -47,12 +47,14 @@ export default function Home() {
       // Пытаемся загрузить из кэша
       const cached = sessionStorage.getItem(`search_${q}`);
       if (cached) {
+        console.log('📦 Загружено из кэша для', q);
         const { similar: cachedSimilar, complementary: cachedComplementary, dependencies: cachedDeps } = JSON.parse(cached);
         setSimilar(cachedSimilar);
         setComplementary(cachedComplementary);
         setDependencies(cachedDeps);
         setLoading(false);
       } else {
+        console.log('🔍 Кэша нет, выполняем поиск для', q);
         search(q);
       }
     }
@@ -169,6 +171,7 @@ export default function Home() {
         dependencies: dependenciesData
       };
       sessionStorage.setItem(`search_${searchQuery}`, JSON.stringify(cacheData));
+      console.log('✅ Кэш сохранён для', searchQuery, cacheData);
 
       track('search', {
         query: searchQuery,
@@ -177,6 +180,7 @@ export default function Home() {
       });
     } catch (err) {
       setError(err.message);
+      console.error('❌ Ошибка поиска:', err);
     } finally {
       setLoading(false);
     }
